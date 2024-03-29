@@ -7,8 +7,30 @@ import torch.nn.functional as F
 
 
 class DRQN(nn.Module):
-    def __init__(self, env, batch_size=64, max_experiences=5000):
+    def __init__(self, action_size, sequence_length, img_size):
         super(DRQN, self).__init__()
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=8, stride=4)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
+        self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
+        self.flatten = nn.Flatten()
+        self.lstm = nn.LSTM(64 * ((img_size // 4) // 2)
+                            ** 2, 512, batch_first=True)
+        self.fc1 = nn.Linear(512, 128)
+        self.fc2 = nn.Linear(128, action_size)
+
+    def forward(self, x):
+        batch_size, sequence_length, img_size, _, _ = x.size()
+        x = F.relu(self.conv1(x.view(-1, img_size, img_size, 1)))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
+        x = self.flatten(x)
+        x, _ = self.lstm(x.view(batch_size, sequence_length, -1))
+        x = F.relu(self.fc1(x[:, -1, :]))
+        return self.fc2(x)
+
+
+class DRQN_Agent:
+    def __init__(self, env, batch_size=64, max_experiences=5000):
         self.env = env
         self.input_size = self.env.observation_space.shape[0]
         self.action_size = self.env.action_space.n
@@ -20,23 +42,13 @@ class DRQN(nn.Module):
         self.epsilon_min = 0.01
         self.epsilon_decay = 0.995
 
-        self.conv1 = nn.Conv2d(1, 32, kernel_size=8, stride=4)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
-        self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
-        self.fc1 = nn.Linear(7*7*64, 512)
-        self.fc2 = nn.Linear(512, self.action_size)
+        self.network = DRQN()
+        self.target_network = DRQN()
+        self.target_network.load_state_dict(self.network.state_dict())
 
         self.optimizer = optim.RMSprop(
             self.parameters(), lr=0.00025, eps=self.epsilon_min)
         self.loss_fn = nn.MSELoss()
-
-    def forward(self, x):
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        x = F.relu(self.conv3(x))
-        x = x.view(x.size(0), -1)  # Flatten the tensor
-        x = F.relu(self.fc1(x))
-        return self.fc2(x)
 
     def get_action(self, state):
         if random.random() <= self.epsilon:
@@ -44,7 +56,7 @@ class DRQN(nn.Module):
         else:
             with torch.no_grad():
                 state = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
-                pred = self(state)
+                pred = self.network(state)
                 return pred.argmax().item()
 
     def add_experience(self, state, action, reward, next_state, done):
@@ -53,6 +65,15 @@ class DRQN(nn.Module):
 
     def update_epsilon(self):
         self.epsilon = max(self.epsilon_min, self.epsilon_decay * self.epsilon)
+
+    def play(self):
+        state = self.env.reset()
+        done = False
+        while not done:
+            action = self.get_action(state)
+            next_state, reward, done, _ = self.env.step(action)
+            self.add_experience(state, action, reward, next_state, done)
+            state = next_state
 
     def learn(self):
         if len(self.memory) < self.batch_size:

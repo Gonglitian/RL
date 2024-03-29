@@ -37,10 +37,12 @@ class DRQN_Agent:
         self.max_experiences = max_experiences
         self.memory = deque(maxlen=self.max_experiences)
         self.batch_size = batch_size
+
         self.gamma = 1.0
         self.epsilon = 1.0
         self.epsilon_min = 0.01
         self.epsilon_decay = 0.995
+        self.episodes = 1000
 
         self.network = DRQN()
         self.target_network = DRQN()
@@ -97,3 +99,8 @@ class DRQN_Agent:
 
         # Update target network
         self.target_network.load_state_dict(self.state_dict())
+
+    def train(self):
+        for _ in range(self.episodes):
+            self.play()
+            self.learn()

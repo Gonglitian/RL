@@ -29,7 +29,7 @@ class DRQN(nn.Module):
         return self.fc2(x)
 
 
-class DRQN_Agent:
+class Agent:
     def __init__(self, env, batch_size=64, max_experiences=5000):
         self.env = env
         self.input_size = self.env.observation_space.shape[0]

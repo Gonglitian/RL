@@ -1,3 +1,4 @@
+from torch import nn
 import torch
 import random
 # 数据池
@@ -75,3 +76,19 @@ class Controller():
             if show:
                 self.env.render()
         return data, reward_sum
+
+
+class GRUModel(nn.Module):
+    def __init__(self, input_size, hidden_size, output_size):
+        super(GRUModel, self).__init__()
+        self.hidden_size = hidden_size
+        self.gru = nn.GRU(input_size, hidden_size, batch_first=True)
+        self.fc = nn.Linear(hidden_size, output_size)
+
+    def forward(self, x):
+        out, _ = self.gru(x)
+        out = self.fc(out[:, -1, :])
+        return out
+
+    def reset(self):
+        self.hidden = torch.zeros(1, 1, self.hidden_size)

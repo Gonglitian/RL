@@ -139,11 +139,3 @@ def show_data(name, pos, digit=3, *content):
     name = info_font.render(
         f"{name}: ({content_str})", True, RED)
     screen.blit(name, pos)  # 在机器人坐标下方绘制目标点坐标
-
-
-def check_circle_to_circle_collision():
-    ...
-
-
-def check_circle_to_rect_collision():
-    ...

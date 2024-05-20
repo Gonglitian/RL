@@ -79,15 +79,12 @@ class Controller():
 
 
 class GRUModel(nn.Module):
-    def __init__(self, input_size, hidden_size):
+    def __init__(self, input_size, hidden_size, output_size):
         super(GRUModel, self).__init__()
-        self.hidden_size = hidden_size
         self.gru = nn.GRU(input_size, hidden_size, batch_first=True)
-        self.hidden = None
+        self.fc = nn.Linear(hidden_size, output_size)
 
     def forward(self, x):
-        if self.hidden is None:
-            self.hidden = torch.zeros(
-                1, x.size(0), self.hidden_size).to(x.device)
-        out, self.hidden = self.gru(x, self.hidden)
+        out, _ = self.gru(x)
+        out = self.fc(out[:, -1, :])
         return out
